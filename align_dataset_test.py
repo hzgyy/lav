@@ -79,7 +79,7 @@ class AlignData(IterableDataset):
                     sequences = random.sample(sequences, min(self.num_seqs, len(sequences)))
 
             get_frame_paths = lambda x : sorted(glob.glob(os.path.join(x, '*')))
-
+            
             def seq_iter():
                 for seq in sequences:
                     

@@ -234,4 +234,7 @@ if __name__ == '__main__':
     if args.workers:
         CONFIG.DATA.WORKERS = args.workers
 
+    CONFIG.ROOT = CONFIG.CKPT_PATH
+    print(CONFIG.DATA.NUM_CONTEXT)
+
     main(CONFIG)

@@ -27,11 +27,14 @@ def evaluate_svm(svm, val_embs, val_labels):
     val_preds = np.concatenate(val_preds)
     val_labels = np.concatenate(val_labels)
 
+    # print(val_labels)
+    # print(val_preds)
+
     # calculate accuracy and confusion matrix
     val_acc = accuracy_score(val_labels, val_preds)
     conf_mat = confusion_matrix(val_labels, val_preds)
 
-    return val_acc, conf_mat
+    return val_acc, conf_mat,val_preds
 
 
 def evaluate_phase_classification(ckpt_step, train_embs, train_labels, val_embs, val_labels, act_name, CONFIG,  writer=None, verbose=False):

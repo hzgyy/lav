@@ -149,3 +149,73 @@ class AlignData(Dataset):
                 item[0] = item[0].view((item[0].shape[0], -1))
         
         return result
+
+class AlignMultiData(AlignData):
+
+    def __init__(self, path, num_frames, data_config, neg_example=False, transform=False, flatten=False):
+        self.super().__init__(path, num_frames, data_config, neg_example, transform, flatten)
+        self.classes = glob.glob(os.path.join(path, '*'))
+        self.n_classes = len(self.classes)
+        self.act_seq = {}
+        self.n_sequences = 0
+        self.each_num = [0]
+        for c in self.classes:
+            self.act_seq[c] = sorted(glob.glob(os.path.join(c, '*')))
+            self.n_sequences += len(self.act_seq[c])
+            self.each_num.append(self.n_sequences)
+        self.each_num = np.array(self.each_num)
+        
+
+    def __len__(self):
+        return self.n_sequences
+
+    def __getitem__(self, idx):
+        
+        class_idx = np.searchsorted(self.each_num, idx, side="right") - 1
+        class_name = self.classes[class_idx]
+        a = self.act_seq[class_name][idx-self.each_num[class_idx]]
+        b = a
+        while a == b:
+            b = random.choice(self.act_seq[class_name])
+
+        assert a != b, "Same sequences sampled!"
+
+        config = self.config
+        get_frame_paths = lambda x : sorted(glob.glob(os.path.join(x, '*')))
+        
+        a_frames = get_frame_paths(a)
+        # a_frames, a_chosen_steps, a_seq_len = sample_frames(a_frames, num_frames=self.num_frames, num_context=config.NUM_CONTEXT, 
+        #                                             frame_stride=config.FRAME_STRIDE, sampling=config.SAMPLING_STRATEGY, 
+        #                                             random_offset=config.RANDOM_OFFSET, context_stride=config.CONTEXT_STRIDE,
+        #                                             is_tcn=config.TCN.IS_TCN, tcn_window=config.TCN.POS_WINDOW)
+    
+        a_frames, a_chosen_steps, a_seq_len = sample_frames(a_frames, num_frames=self.num_frames, num_context=config.NUM_CONTEXT, 
+                                                frame_stride=config.FRAME_STRIDE, sampling=config.SAMPLING_STRATEGY, 
+                                                random_offset=config.RANDOM_OFFSET, context_stride=config.CONTEXT_STRIDE)
+
+        b_frames = get_frame_paths(b)
+        # b_frames, b_chosen_steps, b_seq_len = sample_frames(b_frames, num_frames=self.num_frames, num_context=config.NUM_CONTEXT, 
+        #                                             frame_stride=config.FRAME_STRIDE, sampling=config.SAMPLING_STRATEGY, 
+        #                                             random_offset=config.RANDOM_OFFSET, context_stride=config.CONTEXT_STRIDE,
+        #                                             is_tcn=config.TCN.IS_TCN, tcn_window=config.TCN.POS_WINDOW)
+
+        b_frames, b_chosen_steps, b_seq_len = sample_frames(b_frames, num_frames=self.num_frames, num_context=config.NUM_CONTEXT, 
+                                            frame_stride=config.FRAME_STRIDE, sampling=config.SAMPLING_STRATEGY, 
+                                            random_offset=config.RANDOM_OFFSET, context_stride=config.CONTEXT_STRIDE)
+
+        a_x = utils.get_pil_images(a_frames)
+        b_x = utils.get_pil_images(b_frames)
+
+        a_x = self.transform(a_x)
+        b_x = self.transform(b_x)
+
+        a_name = 'Vid_{}'.format(os.path.basename(a))
+        b_name = 'Vid_{}'.format(os.path.basename(b))
+
+        result = [[a_x, a_name, a_chosen_steps, a_seq_len], [b_x, b_name, b_chosen_steps, b_seq_len]]
+
+        if self.flatten:
+            for item in result:
+                item[0] = item[0].view((item[0].shape[0], -1))
+        
+        return result

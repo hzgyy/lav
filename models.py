@@ -39,7 +39,7 @@ class ConvEmbedder(nn.Module):
 
         batch_size, total_num_steps, c, h, w = x.shape
         num_context = total_num_steps // num_frames
-        x = torch.reshape(x, (batch_size * num_frames, num_context, c, h, w))
+        x = torch.reshape(x[:,:num_frames*num_context,:,:], (batch_size * num_frames, num_context, c, h, w))
 
         # TxCxHxW -> CxTxHxW
         x = x.transpose(1, 2)
