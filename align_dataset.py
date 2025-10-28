@@ -181,7 +181,7 @@ class AlignMultiData(AlignData):
         assert a != b, "Same sequences sampled!"
 
         config = self.config
-        get_frame_paths = lambda x : sorted(glob.glob(os.path.join(x, '*')))
+        get_frame_paths = lambda x : sorted(glob.glob(os.path.join(x, '*.jpg')))
         
         a_frames = get_frame_paths(a)
         # a_frames, a_chosen_steps, a_seq_len = sample_frames(a_frames, num_frames=self.num_frames, num_context=config.NUM_CONTEXT, 
