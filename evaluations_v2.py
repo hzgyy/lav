@@ -148,13 +148,13 @@ def main(ckpt,args):
         data_path = '/root/autodl-tmp/LAV-CVPR21/test/pouring2'
     else:
         data_path = args.data_path
-    num_train_trajs = 9
+    num_train_trajs = 5
     #num_val_trajs = 10-num_train_trajs
     #preprarations
     _transforms = utils.get_transforms(augment=False)
     labels_all = []
     embs_all = []
-    for i in tqdm(range(10)):
+    for i in tqdm(range(6)):
         # read images
         trajs_path = os.path.join(data_path,f'vid{i}')
         print(trajs_path)
@@ -183,6 +183,7 @@ def main(ckpt,args):
         a_emb = a_emb[:, :original,:]
         # a_emb = model(a_X)
         labels = labels[:-1:2]
+        assert False, a_emb[0].shape
         # print(labels)
         assert labels.shape[0] == a_emb.shape[1],f"labels and embs length unpaired:{labels.shape[0]}vs{a_emb.shape[1]}"
         labels_all.append(labels)
@@ -208,7 +209,7 @@ def main(ckpt,args):
     captions = [str_labels[i] for i in val_preds]
     assert type(captions[0]) == str,f"caption type error{type(captions[0])}"
     assert len(val_imgs) == len(captions),f"imgs and captions length unpaired:{len(val_imgs)}vs{len(captions)}"
-    make_video_with_captions(val_imgs,captions,save_path=os.path.join(val_traj_path,"output.mp4"),fps=5)
+    make_video_with_captions(val_imgs,captions,save_path=os.path.join("./test","output.mp4"),fps=5)
     print('\n-----------------------------')
     print('Train-Acc: ', train_acc)
     print('Val-Acc: ', val_acc)

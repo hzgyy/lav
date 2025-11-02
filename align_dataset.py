@@ -111,7 +111,7 @@ class AlignData(Dataset):
         assert a != b, "Same sequences sampled!"
 
         config = self.config
-        get_frame_paths = lambda x : sorted(glob.glob(os.path.join(x, '*')))
+        get_frame_paths = lambda x : sorted(glob.glob(os.path.join(x, '*.jpg')))
         
         a_frames = get_frame_paths(a)
         # a_frames, a_chosen_steps, a_seq_len = sample_frames(a_frames, num_frames=self.num_frames, num_context=config.NUM_CONTEXT, 
@@ -153,7 +153,7 @@ class AlignData(Dataset):
 class AlignMultiData(AlignData):
 
     def __init__(self, path, num_frames, data_config, neg_example=False, transform=False, flatten=False):
-        self.super().__init__(path, num_frames, data_config, neg_example, transform, flatten)
+        super().__init__(path, num_frames, data_config, neg_example, transform, flatten)
         self.classes = glob.glob(os.path.join(path, '*'))
         self.n_classes = len(self.classes)
         self.act_seq = {}
@@ -219,3 +219,15 @@ class AlignMultiData(AlignData):
                 item[0] = item[0].view((item[0].shape[0], -1))
         
         return result
+
+
+
+from config import CONFIG
+if __name__ == '__main__':
+    dataset = AlignData(path='test/square', num_frames=3, data_config=CONFIG.DATA, transform=None, flatten=False)
+
+    print(len(dataset))
+
+    data = dataset[0]
+    print(data[0][0].shape, data[0][1], data[0][2], data[0][3])
+    print(data[1][0].shape, data[1][1], data[1][2], data[1][3])
