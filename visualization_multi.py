@@ -198,6 +198,7 @@ def main(ckpt,args):
             labels = np.zeros((a_emb_reduced.shape[0],),dtype=int)
             labels[::] = i
             labels_all.append(labels)
+            # i += 1
             # a_emb = model(a_X)
             # labels = labels[:-1:2]
             # assert False, a_emb[0].shape

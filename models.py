@@ -102,10 +102,11 @@ class BaseModel(nn.Module):
 
 class BaseR3M(nn.Module):
     def __init__(self, pretrained=True):
-        super(BaseModel, self).__init__()
+        super(BaseR3M, self).__init__()
         
         r3m = load_r3m("resnet50")
-        layers = list(r3m.module.children())[:-3]
+        r3m.eval()
+        layers = list(r3m.module.convnet.children())[:-3]
         layers[-1] = nn.Sequential(*list(layers[-1].children())[:-3])
         self.base_model = nn.Sequential(*layers)
 
@@ -244,3 +245,7 @@ class CharEmbedder(nn.Module):
         x = torch.reshape(x, (batch_size, num_frames, emb_size))
         return x
 
+if __name__ == '__main__':
+    resnet = BaseModel()
+    print("---------------------------------")
+    r3m = BaseR3M()
