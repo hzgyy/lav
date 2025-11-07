@@ -148,8 +148,8 @@ class AlignNet(LightningModule):
         train_path = os.path.join(self.data_path, 'train')
 
         train_transforms = utils.get_transforms(augment=True)
-        # data = align_dataset.AlignData(train_path, config.TRAIN.NUM_FRAMES, config.DATA, transform=train_transforms, flatten=False)
-        data = align_dataset.AlignMultiData(train_path, config.TRAIN.NUM_FRAMES, config.DATA, transform=train_transforms, flatten=False)
+        data = align_dataset.AlignData(train_path, config.TRAIN.NUM_FRAMES, config.DATA, transform=train_transforms, flatten=False)
+        # data = align_dataset.AlignMultiData(train_path, config.TRAIN.NUM_FRAMES, config.DATA, transform=train_transforms, flatten=False)
         data_loader = DataLoader(data, batch_size=self.batch_size, shuffle=True, pin_memory=True,
                                         num_workers=config.DATA.WORKERS)
 
@@ -160,8 +160,8 @@ class AlignNet(LightningModule):
         val_path = os.path.join(self.data_path, 'val')
 
         val_transforms = utils.get_transforms(augment=False)
-        # data = align_dataset.AlignData(val_path, config.EVAL.NUM_FRAMES, config.DATA, transform=val_transforms, flatten=False)
-        data = align_dataset.AlignMultiData(val_path, config.EVAL.NUM_FRAMES, config.DATA, transform=val_transforms, flatten=False)
+        data = align_dataset.AlignData(val_path, config.EVAL.NUM_FRAMES, config.DATA, transform=val_transforms, flatten=False)
+        # data = align_dataset.AlignMultiData(val_path, config.EVAL.NUM_FRAMES, config.DATA, transform=val_transforms, flatten=False)
         data_loader = DataLoader(data, batch_size=self.batch_size, shuffle=True, pin_memory=True,
                                         num_workers=config.DATA.WORKERS)
 

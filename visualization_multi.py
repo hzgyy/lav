@@ -153,12 +153,18 @@ def main(ckpt,args):
         data_path = '/root/autodl-tmp/LAV-CVPR21/test/pouring2'
     else:
         data_path = args.data_path
+    if os.path.exists(args.root) == False:
+        os.mkdir(args.root)
     #preprarations
     _transforms = utils.get_transforms(augment=False)
     labels_all = []
     embs_all = []
     tasks_trajs = glob.glob(os.path.join(data_path, "*"))
     for i,task_path in enumerate(tasks_trajs):
+        if args.spec_class != None:
+            if i != args.spec_class:
+                continue
+        print(f"Processing task {i}:{task_path}")
         trajs_path = glob.glob(os.path.join(task_path,'vid*'))
         #num_val_trajs = 10-num_train_trajs
         for traj_path in tqdm(trajs_path):
@@ -170,21 +176,10 @@ def main(ckpt,args):
             print(len(img_paths))
             imgs = _transforms(imgs)
             print(imgs.shape)
-            # get labels
-            # labels = np.load(os.path.join(trajs_path, 'labels.npy'), allow_pickle=True).item()
-            # labels = np.load(os.path.join(trajs_path, 'labels.npy'), allow_pickle=True)
-            # assert labels.shape[0] == len(imgs),f"imgs and labels length unpaired:{labels.shape[0]}vs{len(imgs)}"
             
             # get embeddings
             a_X = imgs.to(device).unsqueeze(0)
             original = a_X.shape[1]//2
-            # b =  a_X[:, -1].clone()
-            # try:
-            #     b = torch.stack([b]*((args.num_frames*2)-a_X.shape[1]),axis=1).to(device)
-            # except:
-            #     b = torch.from_numpy(np.array([])).float().to(device)
-            # a_X = torch.concat([a_X,b], axis=1)
-            # a_emb = model(a_X)[:, :original,:]
             a_emb = model(a_X)
             print(f"emb shape:{a_emb.shape},original:{original}")
             a_emb = a_emb[:, :original,:]
@@ -198,16 +193,8 @@ def main(ckpt,args):
             labels = np.zeros((a_emb_reduced.shape[0],),dtype=int)
             labels[::] = i
             labels_all.append(labels)
-            # i += 1
-            # a_emb = model(a_X)
-            # labels = labels[:-1:2]
-            # assert False, a_emb[0].shape
-            # # print(labels)
-            # assert labels.shape[0] == a_emb.shape[1],f"labels and embs length unpaired:{labels.shape[0]}vs{a_emb.shape[1]}"
-            # labels_all.append(labels)
-            # if args.verbose:
-            #     print(f'Seq: {i}, ', a_emb.shape)
-            # embs_all.append(a_emb.squeeze(0).detach().cpu().numpy())
+            if args.spec_class != None:
+                i += 1
     print(embs_all[0].shape,labels_all[0].shape)
     embs_all = np.concatenate(embs_all,axis=0)
     # var = embs_all.var(axis=0).mean()  # 每个维度求方差再取平均
@@ -227,33 +214,14 @@ def main(ckpt,args):
         cmap='viridis',   # "viridis" 或 "plasma" 比 "jet" 更平滑自然
         alpha=0.7
     )
+    # Add legend
+    classes = np.unique(colors_all)
+    for cls in classes:
+        plt.scatter([], [], c=scatter.cmap(scatter.norm(cls)), label=f'Class {cls}')
+    plt.legend(title="Class Label")
     plt.title(f'All Trajectories Embeddings Visualization')
-    plt.savefig(os.path.join("./results",f"{args.description}.png"))
+    plt.savefig(os.path.join(args.root,f"{args.description}.png"))
     plt.close()
-    assert False, "stop here"
-    # do training
-    # train_embs = embs_all[:num_train_trajs]
-    # train_labels = labels_all[:num_train_trajs]
-    # val_embs = embs_all[num_train_trajs:]
-    # val_labels = labels_all[num_train_trajs:]
-    # svm_model, train_acc = fit_svm(train_embs, train_labels)
-    # val_acc, conf_mat,val_preds = evaluate_svm(svm_model, val_embs, val_labels)
-
-    # #generate videos
-    # val_traj_path = os.path.join(data_path,f'vid{num_train_trajs}')
-    # val_img_paths = natsorted(glob.glob(os.path.join(val_traj_path, '*.jpg')))
-    # val_imgs = utils.get_pil_images(val_img_paths)
-    # val_imgs = val_imgs[:-1:2]
-    # # str_labels = ["reach bottle","move to pour","pour","move back","withdraw hand"]
-    # str_labels = ["grasp","move above","move down","release"]
-    # captions = [str_labels[i] for i in val_preds]
-    # assert type(captions[0]) == str,f"caption type error{type(captions[0])}"
-    # assert len(val_imgs) == len(captions),f"imgs and captions length unpaired:{len(val_imgs)}vs{len(captions)}"
-    # make_video_with_captions(val_imgs,captions,save_path=os.path.join("./test","output.mp4"),fps=5)
-    # print('\n-----------------------------')
-    # print('Train-Acc: ', train_acc)
-    # print('Val-Acc: ', val_acc)
-    # print('Conf-Mat: ', conf_mat)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -262,6 +230,8 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=20)
     parser.add_argument('--dest', type=str, default='./')
     parser.add_argument('--description', type=str, default=None)
+    parser.add_argument('--spec_class', type=int, default=None)
+    parser.add_argument('--root', type=str, default=None)
 
     parser.add_argument('--stride', type=int, default=5)
     parser.add_argument('--visualize', dest='visualize', action='store_true')
