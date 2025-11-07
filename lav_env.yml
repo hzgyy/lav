@@ -75,4 +75,4 @@ dependencies:
     - werkzeug==2.0.3
     - yarl==1.7.2
     - zipp==3.6.0
-prefix: C:\Users\hamza\anaconda3\envs\lav
+# prefix: C:\Users\hamza\anaconda3\envs\lav

@@ -85,22 +85,29 @@ class LAV(nn.Module):
 
 class TCC(nn.Module):
 
-    def __init__(self, channels, temperature, var_lambda, debug=False):
+    def __init__(self, channels, temperature, var_lambda, similarity_type,debug=False):
         super(TCC, self).__init__()
 
         self.debug = debug
         self.channels = channels
         self.temperature = temperature
         self.var_lambda = var_lambda
+        self.similarity_type = similarity_type
+        if self.similarity_type == 'cosine':
+            self.channels = 1.
 
     def _pairwise_distance(self, x, y):
         x = x.unsqueeze(1)
         y = y.unsqueeze(0)
-        dist = torch.pow(x - y, 2).sum(2)
+        if self.similarity_type == 'cosine':
+            # x = F.normalize(x, p=2, dim=2)
+            # y = F.normalize(y, p=2, dim=2)
+            dist = 1.- torch.sum(x*y,dim=-1)
+        else:  # l2
+            dist = torch.pow(x - y, 2).sum(2)
         return dist
 
     def _get_scaled_similarity(self, emb_a, emb_b):
-
         sim = -1. * self._pairwise_distance(emb_a, emb_b)
 
         scaled_similarity = sim / self.channels
@@ -109,16 +116,13 @@ class TCC(nn.Module):
         return scaled_similarity
 
     def _tcc_loss(self, emb_a, emb_b, idxes):
-
         sim_ab = self._get_scaled_similarity(emb_a, emb_b)
         softmaxed_sim_ab = F.softmax(sim_ab, dim=-1)
-
         soft_nn = torch.matmul(softmaxed_sim_ab, emb_b)
 
         sim_ba = self._get_scaled_similarity(soft_nn, emb_a)
 
         labels = idxes
-
         beta = F.softmax(sim_ba, dim=-1)
         preds = torch.sum(beta * idxes, dim=-1, keepdim=True)
 

@@ -4,6 +4,8 @@ import torch.nn.functional as F
 
 import torchvision.models as models
 
+from r3m import load_r3m
+
 class ConvEmbedder(nn.Module):
 
     def __init__(self, emb_size=128, l2_normalize=False):
@@ -83,6 +85,27 @@ class BaseModel(nn.Module):
         
         resnet = models.resnet50(pretrained=pretrained)
         layers = list(resnet.children())[:-3]
+        layers[-1] = nn.Sequential(*list(layers[-1].children())[:-3])
+        self.base_model = nn.Sequential(*layers)
+
+    def forward(self, x):
+
+        batch_size, num_steps, c, h, w = x.shape
+        x = torch.reshape(x, [batch_size * num_steps, c, h, w])
+
+        x = self.base_model(x)
+
+        _, c, h, w = x.shape
+        x = torch.reshape(x, [batch_size, num_steps, c, h, w])
+
+        return x
+
+class BaseR3M(nn.Module):
+    def __init__(self, pretrained=True):
+        super(BaseModel, self).__init__()
+        
+        r3m = load_r3m("resnet50")
+        layers = list(r3m.module.children())[:-3]
         layers[-1] = nn.Sequential(*list(layers[-1].children())[:-3])
         self.base_model = nn.Sequential(*layers)
 

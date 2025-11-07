@@ -153,61 +153,64 @@ def main(ckpt,args):
         data_path = '/root/autodl-tmp/LAV-CVPR21/test/pouring2'
     else:
         data_path = args.data_path
-    num_train_trajs = 5
-    #num_val_trajs = 10-num_train_trajs
     #preprarations
     _transforms = utils.get_transforms(augment=False)
     labels_all = []
     embs_all = []
-    for i in tqdm(range(5)):
-        # read images
-        trajs_path = os.path.join(data_path,f'vid{i}')
-        print(trajs_path)
-        img_paths = natsorted(glob.glob(os.path.join(trajs_path, '*.jpg')))
-        imgs = utils.get_pil_images(img_paths)
-        print(len(img_paths))
-        imgs = _transforms(imgs)
-        print(imgs.shape)
-        # get labels
-        # labels = np.load(os.path.join(trajs_path, 'labels.npy'), allow_pickle=True).item()
-        # labels = np.load(os.path.join(trajs_path, 'labels.npy'), allow_pickle=True)
-        # assert labels.shape[0] == len(imgs),f"imgs and labels length unpaired:{labels.shape[0]}vs{len(imgs)}"
-        
-        # get embeddings
-        a_X = imgs.to(device).unsqueeze(0)
-        original = a_X.shape[1]//2
-        # b =  a_X[:, -1].clone()
-        # try:
-        #     b = torch.stack([b]*((args.num_frames*2)-a_X.shape[1]),axis=1).to(device)
-        # except:
-        #     b = torch.from_numpy(np.array([])).float().to(device)
-        # a_X = torch.concat([a_X,b], axis=1)
-        # a_emb = model(a_X)[:, :original,:]
-        a_emb = model(a_X)
-        print(f"emb shape:{a_emb.shape},original:{original}")
-        a_emb = a_emb[:, :original,:]
+    tasks_trajs = glob.glob(os.path.join(data_path, "*"))
+    for i,task_path in enumerate(tasks_trajs):
+        trajs_path = glob.glob(os.path.join(task_path,'vid*'))
+        #num_val_trajs = 10-num_train_trajs
+        for traj_path in tqdm(trajs_path):
+            # read images
+            # trajs_path = os.path.join(data_path,f'vid{i}')
+            # print(trajs_path)
+            img_paths = natsorted(glob.glob(os.path.join(traj_path, '*.jpg')))
+            imgs = utils.get_pil_images(img_paths)
+            print(len(img_paths))
+            imgs = _transforms(imgs)
+            print(imgs.shape)
+            # get labels
+            # labels = np.load(os.path.join(trajs_path, 'labels.npy'), allow_pickle=True).item()
+            # labels = np.load(os.path.join(trajs_path, 'labels.npy'), allow_pickle=True)
+            # assert labels.shape[0] == len(imgs),f"imgs and labels length unpaired:{labels.shape[0]}vs{len(imgs)}"
+            
+            # get embeddings
+            a_X = imgs.to(device).unsqueeze(0)
+            original = a_X.shape[1]//2
+            # b =  a_X[:, -1].clone()
+            # try:
+            #     b = torch.stack([b]*((args.num_frames*2)-a_X.shape[1]),axis=1).to(device)
+            # except:
+            #     b = torch.from_numpy(np.array([])).float().to(device)
+            # a_X = torch.concat([a_X,b], axis=1)
+            # a_emb = model(a_X)[:, :original,:]
+            a_emb = model(a_X)
+            print(f"emb shape:{a_emb.shape},original:{original}")
+            a_emb = a_emb[:, :original,:]
 
-        # do PCA to reduce dimension to 50
-        # pca = PCA(n_components=50)
-        # a_emb_reduced = pca.fit_transform(a_emb.squeeze(0).detach().cpu().numpy())
-        # print(f"PCA reduced shape:{a_emb_reduced.shape}")
-        a_emb_reduced = a_emb.squeeze(0).detach().cpu().numpy()
-        embs_all.append(a_emb_reduced)
-        labels = np.zeros((a_emb_reduced.shape[0],),dtype=int)
-        labels[::] = i
-        labels_all.append(labels)
-
-        # a_emb = model(a_X)
-        # labels = labels[:-1:2]
-        # assert False, a_emb[0].shape
-        # # print(labels)
-        # assert labels.shape[0] == a_emb.shape[1],f"labels and embs length unpaired:{labels.shape[0]}vs{a_emb.shape[1]}"
-        # labels_all.append(labels)
-        # if args.verbose:
-        #     print(f'Seq: {i}, ', a_emb.shape)
-        # embs_all.append(a_emb.squeeze(0).detach().cpu().numpy())
+            # do PCA to reduce dimension to 50
+            # pca = PCA(n_components=50)
+            # a_emb_reduced = pca.fit_transform(a_emb.squeeze(0).detach().cpu().numpy())
+            # print(f"PCA reduced shape:{a_emb_reduced.shape}")
+            a_emb_reduced = a_emb.squeeze(0).detach().cpu().numpy()
+            embs_all.append(a_emb_reduced)
+            labels = np.zeros((a_emb_reduced.shape[0],),dtype=int)
+            labels[::] = i
+            labels_all.append(labels)
+            # a_emb = model(a_X)
+            # labels = labels[:-1:2]
+            # assert False, a_emb[0].shape
+            # # print(labels)
+            # assert labels.shape[0] == a_emb.shape[1],f"labels and embs length unpaired:{labels.shape[0]}vs{a_emb.shape[1]}"
+            # labels_all.append(labels)
+            # if args.verbose:
+            #     print(f'Seq: {i}, ', a_emb.shape)
+            # embs_all.append(a_emb.squeeze(0).detach().cpu().numpy())
     print(embs_all[0].shape,labels_all[0].shape)
     embs_all = np.concatenate(embs_all,axis=0)
+    # var = embs_all.var(axis=0).mean()  # 每个维度求方差再取平均
+    # assert False, var.item()
     # do TSNE
     tsne = TSNE(n_components=2)
     embs_all_2d = tsne.fit_transform(embs_all)
@@ -224,7 +227,7 @@ def main(ckpt,args):
         alpha=0.7
     )
     plt.title(f'All Trajectories Embeddings Visualization')
-    plt.savefig(os.path.join("./test",f"all_traj_embeddings.png"))
+    plt.savefig(os.path.join("./results",f"{args.description}.png"))
     plt.close()
     assert False, "stop here"
     # do training
@@ -257,6 +260,7 @@ if __name__ == '__main__':
     parser.add_argument('--data_path', type=str, default=None)
     parser.add_argument('--batch_size', type=int, default=20)
     parser.add_argument('--dest', type=str, default='./')
+    parser.add_argument('--description', type=str, default=None)
 
     parser.add_argument('--stride', type=int, default=5)
     parser.add_argument('--visualize', dest='visualize', action='store_true')

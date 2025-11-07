@@ -10,7 +10,7 @@ import numpy as np
 
 import utils
 import align_dataset
-from models import BaseModel, ConvEmbedder
+from models import BaseModel, ConvEmbedder, BaseR3M
 from config import CONFIG
 # from ViViT import ViViT
 from pytorch_lightning import Trainer, seed_everything
@@ -26,8 +26,10 @@ import argparse
 class AlignNet(LightningModule):
     def __init__(self, config):
         super(AlignNet, self).__init__()
-
-        self.base_cnn = BaseModel(pretrained=True)
+        if config.BASEMODEL == 'r3m':
+            self.base_cnn = BaseR3M(pretrained=True)
+        else:
+            self.base_cnn = BaseModel(pretrained=True)
 
         if config.TRAIN.FREEZE_BASE:
             if config.TRAIN.FREEZE_BN_ONLY:
@@ -37,14 +39,14 @@ class AlignNet(LightningModule):
 
         self.emb = ConvEmbedder(emb_size=config.DTWALIGNMENT.EMBEDDING_SIZE, l2_normalize=config.LOSSES.L2_NORMALIZE)
 
-        self.lav_loss = losses.LAV(alpha=config.LOSSES.ALPHA, sigma=config.LOSSES.SIGMA, margin=config.LOSSES.IDM_IDX_MARGIN, 
-                            num_frames=config.TRAIN.NUM_FRAMES, dtw_gamma=config.DTWALIGNMENT.SDTW_GAMMA, 
-                            dtw_normalize=config.DTWALIGNMENT.SDTW_NORMALIZE, debug=False)
+        # self.lav_loss = losses.LAV(alpha=config.LOSSES.ALPHA, sigma=config.LOSSES.SIGMA, margin=config.LOSSES.IDM_IDX_MARGIN, 
+        #                     num_frames=config.TRAIN.NUM_FRAMES, dtw_gamma=config.DTWALIGNMENT.SDTW_GAMMA, 
+        #                     dtw_normalize=config.DTWALIGNMENT.SDTW_NORMALIZE, debug=False)
 
-        # self.tcc_loss = losses.TCC(channels = config.TCC.EMBEDDING_SIZE, temperature=config.TCC.SOFTMAX_TEMPERATURE, 
-        #                     var_lambda=config.TCC.VARIANCE_LAMBDA, debug=False)
+        self.tcc_loss = losses.TCC(channels = config.TCC.EMBEDDING_SIZE, temperature=config.TCC.SOFTMAX_TEMPERATURE, 
+                            var_lambda=config.TCC.VARIANCE_LAMBDA,similarity_type = config.TCC.SIMILARITY_TYPE, debug=False)
 
-        # self.lav_loss  = self.tcc_loss  # switch to TCC loss
+        #self.lav_loss  = self.tcc_loss  # switch to TCC loss
 
         self.description = config.DESCRIPTION
 
@@ -78,8 +80,6 @@ class AlignNet(LightningModule):
         num_ctxt = self.hparams.config.DATA.NUM_CONTEXT
 
         num_frames = x.size(1) // num_ctxt
-        # print("Input shape:", x.shape)
-        # print("NaN:", torch.isnan(x).any().item(), "Inf:", torch.isinf(x).any().item())
         x = self.base_cnn(x)
         x = self.emb(x, num_frames)
         return x
@@ -92,10 +92,8 @@ class AlignNet(LightningModule):
         a_embs, b_embs = torch.split(embs, a_X.size(0), dim=0)
         
         loss = 0.
-
         for a_emb, a_idx, a_len, b_emb, b_idx, b_len in zip(a_embs.unsqueeze(1), a_steps, a_seq_len, b_embs.unsqueeze(1), b_steps, b_seq_len): 
-
-            loss += self.lav_loss(a_emb, b_emb, a_idx, b_idx, a_len, b_len)
+            loss += self.tcc_loss(a_emb, b_emb, a_idx, b_idx)
 
         loss = loss / self.batch_size
 
@@ -115,7 +113,7 @@ class AlignNet(LightningModule):
 
         for a_emb, a_idx, a_len, b_emb, b_idx, b_len in zip(a_embs.unsqueeze(1), a_steps, a_seq_len, b_embs.unsqueeze(1), b_steps, b_seq_len):
             
-            loss += self.lav_loss(a_emb, b_emb, a_idx, b_idx, a_len, b_len, logger=self.logger)
+            loss += self.tcc_loss(a_emb, b_emb, a_idx, b_idx, logger=self.logger)
 
         loss = loss / self.batch_size
 
@@ -193,8 +191,11 @@ def main(hparams):
 
         trainer = Trainer(gpus=hparams.GPUS, max_epochs=hparams.TRAIN.EPOCHS, default_root_dir=hparams.ROOT, 
                                     deterministic=True,
-                                    callbacks=[checkpoint_callback], check_val_every_n_epoch=1)
- 
+                                    callbacks=[checkpoint_callback], check_val_every_n_epoch=1, precision=16)
+        # trainer = Trainer(gpus=hparams.GPUS, max_epochs=hparams.TRAIN.EPOCHS, default_root_dir=hparams.ROOT, 
+        #                             deterministic=True,
+        #                             callbacks=[checkpoint_callback], check_val_every_n_epoch=1)
+
         trainer.fit(model)
         #  distributed_backend=dd_backend, row_log_interval=10 limit_val_batches=hparams.TRAIN.VAL_PERCENT
     except KeyboardInterrupt:

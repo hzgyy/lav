@@ -179,11 +179,11 @@ class AlignMultiData(AlignData):
             b = random.choice(self.act_seq[class_name])
 
         assert a != b, "Same sequences sampled!"
-
         config = self.config
         get_frame_paths = lambda x : sorted(glob.glob(os.path.join(x, '*.jpg')))
         
         a_frames = get_frame_paths(a)
+        # print(len(a_frames))
         # a_frames, a_chosen_steps, a_seq_len = sample_frames(a_frames, num_frames=self.num_frames, num_context=config.NUM_CONTEXT, 
         #                                             frame_stride=config.FRAME_STRIDE, sampling=config.SAMPLING_STRATEGY, 
         #                                             random_offset=config.RANDOM_OFFSET, context_stride=config.CONTEXT_STRIDE,
@@ -194,6 +194,7 @@ class AlignMultiData(AlignData):
                                                 random_offset=config.RANDOM_OFFSET, context_stride=config.CONTEXT_STRIDE)
 
         b_frames = get_frame_paths(b)
+        # print(len(b_frames))
         # b_frames, b_chosen_steps, b_seq_len = sample_frames(b_frames, num_frames=self.num_frames, num_context=config.NUM_CONTEXT, 
         #                                             frame_stride=config.FRAME_STRIDE, sampling=config.SAMPLING_STRATEGY, 
         #                                             random_offset=config.RANDOM_OFFSET, context_stride=config.CONTEXT_STRIDE,
@@ -224,10 +225,11 @@ class AlignMultiData(AlignData):
 
 from config import CONFIG
 if __name__ == '__main__':
-    dataset = AlignData(path='test/square', num_frames=3, data_config=CONFIG.DATA, transform=None, flatten=False)
+    # dataset = AlignData(path='test/square', num_frames=3, data_config=CONFIG.DATA, transform=None, flatten=False)
+    dataset = AlignMultiData(path='Data/autolab_ur5_use/train', num_frames=3, data_config=CONFIG.DATA, transform=None, flatten=False)
 
     print(len(dataset))
-
-    data = dataset[0]
+    i = random.randint(0, len(dataset)-1)
+    data = dataset[i]
     print(data[0][0].shape, data[0][1], data[0][2], data[0][3])
     print(data[1][0].shape, data[1][1], data[1][2], data[1][3])
