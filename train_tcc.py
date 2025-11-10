@@ -15,6 +15,7 @@ from config import CONFIG
 # from ViViT import ViViT
 from pytorch_lightning import Trainer, seed_everything
 from pytorch_lightning.core.lightning import LightningModule
+from pytorch_lightning.loggers import WandbLogger
 
 import torch
 import torch.nn as nn
@@ -188,10 +189,10 @@ def main(hparams):
     try:
 
         checkpoint_callback = utils.CheckpointEveryNSteps(hparams.TRAIN.SAVE_INTERVAL_ITERS, filepath=os.path.join(hparams.CKPT_PATH, 'STEPS'))
-
+        wandb_logger = WandbLogger(project="tcc")
         trainer = Trainer(gpus=hparams.GPUS, max_epochs=hparams.TRAIN.EPOCHS, default_root_dir=hparams.ROOT, 
                                     deterministic=True,
-                                    callbacks=[checkpoint_callback], check_val_every_n_epoch=1, precision=16)
+                                    callbacks=[checkpoint_callback], check_val_every_n_epoch=1, precision=16,logger=wandb_logger)
         # trainer = Trainer(gpus=hparams.GPUS, max_epochs=hparams.TRAIN.EPOCHS, default_root_dir=hparams.ROOT, 
         #                             deterministic=True,
         #                             callbacks=[checkpoint_callback], check_val_every_n_epoch=1)
