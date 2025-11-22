@@ -141,9 +141,15 @@ def get_embs(traj_path,model,_transforms,args,device):
     imgs = utils.get_pil_images(img_paths)
     print(len(img_paths))
     imgs = _transforms(imgs)
+    # stride = imgs.shape[0] // 20
+    # imgs = imgs[::stride]
     print(imgs.shape)
     
     # get embeddings
+    n = imgs.shape[0]
+    idx = torch.arange(n)
+    idx = torch.cat([idx[:1],torch.repeat_interleave(idx[1:], 2),idx[-1:]])
+    imgs = imgs[idx]
     a_X = imgs.to(device).unsqueeze(0)
     original = a_X.shape[1]//2
     a_emb = model(a_X)
@@ -161,6 +167,24 @@ def knn_cosine_estimate(embs_all, labels_all, test_embs, K):
     # 2. Compute cosine similarity (M,N)
     # sim[i,j] = dot(test_embs_norm[i], embs_all_norm[j])
     sim = test_embs_norm @ embs_all_norm.T   # (M,N)
+
+    # 3. Take top K nearest neighbors by similarity
+    knn_indices = np.argpartition(-sim, K, axis=1)[:, :K]   # (M,K)
+
+    # 4. Average the K labels
+    estimated = np.mean(labels_all[knn_indices], axis=1)    # (M,)
+
+    return estimated
+
+def knn_l2_estimate(embs_all, labels_all, test_embs, K):
+    # 1. L2 normalization
+    embs_all_norm = embs_all / np.linalg.norm(embs_all, axis=1, keepdims=True)  # (N,128)
+    test_embs_norm = test_embs / np.linalg.norm(test_embs, axis=1, keepdims=True)  # (M,128)
+
+    # compute L2 distance
+    embs_all_norm = embs_all_norm[np.newaxis, :, :]  # (1,N,128)
+    test_embs_norm = test_embs_norm[:, np.newaxis, :]  # (M,1,128)
+    sim = np.sum((test_embs_norm - embs_all_norm)**2, axis=-1)  # (M,N)
 
     # 3. Take top K nearest neighbors by similarity
     knn_indices = np.argpartition(-sim, K, axis=1)[:, :K]   # (M,K)
@@ -189,8 +213,8 @@ def main(ckpt,args):
         data_path = '/root/autodl-tmp/LAV-CVPR21/test/pouring2'
     else:
         data_path = args.data_path
-    if os.path.exists(args.root) == False:
-        os.mkdir(args.root)
+    # if os.path.exists(args.root) == False:
+    #     os.mkdir(args.root)
     #preprarations
     _transforms = utils.get_transforms(augment=False)
     labels_all = []
@@ -206,7 +230,7 @@ def main(ckpt,args):
         
         embs_all.append(a_emb_reduced)
         labels = np.arange(a_emb_reduced.shape[0])/a_emb_reduced.shape[0]
-        print(labels)
+        # print(labels)
         labels_all.append(labels)
     print(embs_all[0].shape,labels_all[0].shape)
     embs_all = np.concatenate(embs_all,axis=0)

@@ -25,7 +25,7 @@ from PIL import Image, ImageDraw, ImageFont
 from sklearn.manifold import TSNE
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
-
+from align_dataset import get_steps_with_context
 
 def get_embeddings(model, data, labels_npy, args):
 
@@ -159,11 +159,15 @@ def main(ckpt,args):
     _transforms = utils.get_transforms(augment=False)
     labels_all = []
     embs_all = []
-    for i in tqdm(range(5)):
+    lengths = []
+    demo_paths = natsorted(glob.glob(os.path.join(args.demo_path, "vid*")))[:args.N]
+    trajs = demo_paths
+    trajs.append(data_path)
+    # for i in tqdm(range(5)):
+    for i,traj in enumerate(trajs):
         # read images
-        trajs_path = os.path.join(data_path,f'vid{i}')
-        print(trajs_path)
-        img_paths = natsorted(glob.glob(os.path.join(trajs_path, '*.jpg')))
+        print(traj)
+        img_paths = natsorted(glob.glob(os.path.join(traj, '*.jpg')))
         imgs = utils.get_pil_images(img_paths)
         print(len(img_paths))
         imgs = _transforms(imgs)
@@ -172,7 +176,10 @@ def main(ckpt,args):
         # labels = np.load(os.path.join(trajs_path, 'labels.npy'), allow_pickle=True).item()
         # labels = np.load(os.path.join(trajs_path, 'labels.npy'), allow_pickle=True)
         # assert labels.shape[0] == len(imgs),f"imgs and labels length unpaired:{labels.shape[0]}vs{len(imgs)}"
-        
+        n = imgs.shape[0]
+        steps = np.arange(n)
+        steps = get_steps_with_context(steps, num_context=2,context_stride=5)
+        imgs = imgs[steps]
         # get embeddings
         a_X = imgs.to(device).unsqueeze(0)
         original = a_X.shape[1]//2
@@ -196,7 +203,7 @@ def main(ckpt,args):
         labels = np.zeros((a_emb_reduced.shape[0],),dtype=int)
         labels[::] = i
         labels_all.append(labels)
-
+        lengths.append(labels.shape[0])
         # a_emb = model(a_X)
         # labels = labels[:-1:2]
         # assert False, a_emb[0].shape
@@ -206,7 +213,7 @@ def main(ckpt,args):
         # if args.verbose:
         #     print(f'Seq: {i}, ', a_emb.shape)
         # embs_all.append(a_emb.squeeze(0).detach().cpu().numpy())
-    print(embs_all[0].shape,labels_all[0].shape)
+    # print(embs_all[0].shape,labels_all[0].shape)
     embs_all = np.concatenate(embs_all,axis=0)
     # do TSNE
     tsne = TSNE(n_components=2)
@@ -223,9 +230,64 @@ def main(ckpt,args):
         cmap='viridis',   # "viridis" 或 "plasma" 比 "jet" 更平滑自然
         alpha=0.7
     )
+    offset = 0
+    for i, L in enumerate(lengths):
+        start = offset
+        end = offset + L - 1
+
+        # 起点：用大星形标记
+        plt.scatter(
+            embs_all_2d[start, 0],
+            embs_all_2d[start, 1],
+            marker='*',
+            s=200,  # 点的大小
+            edgecolors='black',
+            linewidths=1.5,
+            c=[colors_all[start]]
+        )
+
+        # 终点：用大X标记
+        plt.scatter(
+            embs_all_2d[end, 0],
+            embs_all_2d[end, 1],
+            marker='X',
+            s=200,
+            edgecolors='black',
+            linewidths=1.5,
+            c=[colors_all[end]]
+        )
+
+        step = 25
+
+        for i in range(start, end, step):
+            plt.text(
+                embs_all_2d[i, 0],
+                embs_all_2d[i, 1],
+                str(i-start),
+                fontsize=10,
+                ha='center',
+                va='center',
+                color='black',
+                bbox=dict(facecolor='white', edgecolor='black', boxstyle='round,pad=0.2')
+            )
+
+        offset += L
+    # Add legend
+    classes = np.unique(colors_all)
+    for cls in classes:
+        plt.scatter([], [], c=scatter.cmap(scatter.norm(cls)), label=f'Class {cls}')
+    plt.legend(title="Class Label")
     plt.title(f'All Trajectories Embeddings Visualization')
-    plt.savefig(os.path.join("./test",f"all_traj_embeddings.png"))
+    plt.savefig(os.path.join(args.root,f"{args.description}.png"))
     plt.close()
+    #some extra calculation
+    query_emb = a_emb_reduced
+    demo_emb = embs_all[:-query_emb.shape[0]]
+    query_emb = query_emb[:,np.newaxis,:]
+    demo_emb = demo_emb[np.newaxis,:,:]
+    dist = np.sum((query_emb - demo_emb)**2,axis=-1)
+    dist_mean = np.min(dist,axis=-1)
+    print(dist_mean)
     assert False, "stop here"
     # do training
     # train_embs = embs_all[:num_train_trajs]
@@ -255,8 +317,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_path', type=str, required=True)
     parser.add_argument('--data_path', type=str, default=None)
+    parser.add_argument('--demo_path', type=str, default=None)
+    parser.add_argument('--N', type=int, default=3)
     parser.add_argument('--batch_size', type=int, default=20)
-    parser.add_argument('--dest', type=str, default='./')
+    parser.add_argument('--root', type=str, default=None)
+    parser.add_argument('--description', type=str, default=None)
 
     parser.add_argument('--stride', type=int, default=5)
     parser.add_argument('--visualize', dest='visualize', action='store_true')

@@ -248,4 +248,5 @@ class CharEmbedder(nn.Module):
 if __name__ == '__main__':
     resnet = BaseModel()
     print("---------------------------------")
-    r3m = BaseR3M()
+    # r3m = BaseR3M()
+    print(resnet)

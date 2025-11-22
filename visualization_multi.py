@@ -25,7 +25,7 @@ from PIL import Image, ImageDraw, ImageFont
 from sklearn.manifold import TSNE
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
-
+from align_dataset import get_steps_with_context
 
 def get_embeddings(model, data, labels_npy, args):
 
@@ -159,24 +159,29 @@ def main(ckpt,args):
     _transforms = utils.get_transforms(augment=False)
     labels_all = []
     embs_all = []
+    lengths = []
     tasks_trajs = glob.glob(os.path.join(data_path, "*"))
     for i,task_path in enumerate(tasks_trajs):
         if args.spec_class != None:
             if i != args.spec_class:
                 continue
         print(f"Processing task {i}:{task_path}")
-        trajs_path = glob.glob(os.path.join(task_path,'vid*'))
+        trajs_path = natsorted(glob.glob(os.path.join(task_path,'vid*')))
         #num_val_trajs = 10-num_train_trajs
         for traj_path in tqdm(trajs_path):
             # read images
             # trajs_path = os.path.join(data_path,f'vid{i}')
-            # print(trajs_path)
+            print(traj_path)
             img_paths = natsorted(glob.glob(os.path.join(traj_path, '*.jpg')))
             imgs = utils.get_pil_images(img_paths)
             print(len(img_paths))
             imgs = _transforms(imgs)
             print(imgs.shape)
             
+            n = imgs.shape[0]
+            steps = np.arange(n)
+            steps = get_steps_with_context(steps, num_context=2,context_stride=5)
+            imgs = imgs[steps]
             # get embeddings
             a_X = imgs.to(device).unsqueeze(0)
             original = a_X.shape[1]//2
@@ -193,6 +198,7 @@ def main(ckpt,args):
             labels = np.zeros((a_emb_reduced.shape[0],),dtype=int)
             labels[::] = i
             labels_all.append(labels)
+            lengths.append(a_emb_reduced.shape[0])
             if args.spec_class != None:
                 i += 1
     print(embs_all[0].shape,labels_all[0].shape)
@@ -214,6 +220,48 @@ def main(ckpt,args):
         cmap='viridis',   # "viridis" 或 "plasma" 比 "jet" 更平滑自然
         alpha=0.7
     )
+    # offset = 0
+    # for i, L in enumerate(lengths):
+    #     start = offset
+    #     end = offset + L - 1
+
+    #     # 起点：用大星形标记
+    #     plt.scatter(
+    #         embs_all_2d[start, 0],
+    #         embs_all_2d[start, 1],
+    #         marker='*',
+    #         s=200,  # 点的大小
+    #         edgecolors='black',
+    #         linewidths=1.5,
+    #         c=[colors_all[start]]
+    #     )
+
+    #     # 终点：用大X标记
+    #     plt.scatter(
+    #         embs_all_2d[end, 0],
+    #         embs_all_2d[end, 1],
+    #         marker='X',
+    #         s=200,
+    #         edgecolors='black',
+    #         linewidths=1.5,
+    #         c=[colors_all[end]]
+    #     )
+
+    #     step = 25
+
+    #     for i in range(start, end, step):
+    #         plt.text(
+    #             embs_all_2d[i, 0],
+    #             embs_all_2d[i, 1],
+    #             str(i-start),
+    #             fontsize=10,
+    #             ha='center',
+    #             va='center',
+    #             color='black',
+    #             bbox=dict(facecolor='white', edgecolor='black', boxstyle='round,pad=0.2')
+    #         )
+
+    #     offset += L
     # Add legend
     classes = np.unique(colors_all)
     for cls in classes:
@@ -223,10 +271,20 @@ def main(ckpt,args):
     plt.savefig(os.path.join(args.root,f"{args.description}.png"))
     plt.close()
 
+    #some extra calculation
+    query_emb = embs_all[:lengths[0]]
+    demo_emb = embs_all[lengths[0]:]
+    query_emb = query_emb[:,np.newaxis,:]
+    demo_emb = demo_emb[np.newaxis,:,:]
+    dist = np.sum((query_emb - demo_emb)**2,axis=-1)
+    dist_mean = np.min(dist,axis=-1)
+    print(dist_mean)
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_path', type=str, required=True)
     parser.add_argument('--data_path', type=str, default=None)
+    parser.add_argument('--demo_path', type=str, default=None)
     parser.add_argument('--batch_size', type=int, default=20)
     parser.add_argument('--dest', type=str, default='./')
     parser.add_argument('--description', type=str, default=None)
